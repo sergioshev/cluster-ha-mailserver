@@ -1,0 +1,27 @@
+       <group id="group_smtp">
+         <primitive class="ocf" type="IPaddr" provider="heartbeat" id="IPaddr2_smtp">
+           <instance_attributes>
+             <attributes>
+               <nvpair name="ip" value="192.168.0.102"/>
+               <nvpair name="netmask" value="255.255.255.0"/>
+               <nvpair name="nic" value="eth0"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" type="IPaddr" provider="heartbeat" id="IPaddr2_smtp_2">
+           <instance_attributes>
+             <attributes>
+               <nvpair name="ip" value="192.168.2.102"/>
+               <nvpair name="netmask" value="255.255.255.0"/>
+               <nvpair name="nic" value="eth0"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+	 <primitive id="clamav_itself" class="lsb" type="clamav-daemon" provider="heartbeat">
+           <operations>
+             <op id="clamav_itself_op_1" name="start" timeout="300"/>
+             <op id="clamav_itself_op_2" name="stop" timeout="300"/>
+           </operations>
+         </primitive>
+       </group>
+

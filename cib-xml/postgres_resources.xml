@@ -1,0 +1,34 @@
+       <group id="group_psql">
+         <primitive class="heartbeat" id="drbd_psql" provider="heartbeat" type="drbddisk">
+           <operations>
+             <op id="drbd_psql_mon" interval="60s" name="monitor" timeout="180s"/>
+           </operations>
+           <instance_attributes id="drbd_psql_attrs">
+             <attributes>
+               <nvpair id="rbddisk_psql_attr_1" name="1" value="drbd_psql"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" id="Filesystem_psql" provider="heartbeat" type="Filesystem">
+           <operations>
+             <op id="Filesystem_psql_mon" interval="60s" name="monitor" timeout="180s"/>
+           </operations>
+           <instance_attributes id="Filesystem_psql_attrs">
+             <attributes>
+               <nvpair id="Filesystem_psql_attr_1" name="device" value="/dev/drbd4"/>
+               <nvpair id="Filesystem_psql_attr_2" name="directory" value="/var/statefulls/postgres"/>
+               <nvpair id="Filesystem_psql_attr_3" name="fstype" value="ext3"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" type="IPaddr" provider="heartbeat" id="IPaddr2_psql">
+           <instance_attributes>
+             <attributes>
+               <nvpair name="ip" value="192.168.0.108"/>
+               <nvpair name="netmask" value="255.255.255.0"/>
+               <nvpair name="nic" value="eth0"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="lsb" id="psql_itself" provider="heartbeat" type="postgresql-8.1"/>
+       </group>

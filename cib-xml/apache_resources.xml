@@ -1,0 +1,63 @@
+       <group id="group_apache">
+         <primitive class="heartbeat" id="drbd_apache" provider="heartbeat" type="drbddisk">
+           <operations>
+             <op id="drbd_apache_mon" interval="60s" name="monitor" timeout="180s"/>
+           </operations>
+           <instance_attributes id="drbd_apache_attrs">
+             <attributes>
+               <nvpair id="rbddisk_apache_attr_1" name="1" value="drbd_apache"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" id="Filesystem_apache" provider="heartbeat" type="Filesystem">
+           <operations>
+             <op id="Filesystem_apache_mon" interval="60s" name="monitor" timeout="180s"/>
+           </operations>
+           <instance_attributes id="Filesystem_apache_attrs">
+             <attributes>
+               <nvpair id="Filesystem_apache_attr_1" name="device" value="/dev/drbd3"/>
+               <nvpair id="Filesystem_apache_attr_2" name="directory" value="/var/statefulls/www"/>
+               <nvpair id="Filesystem_apache_attr_3" name="fstype" value="ext3"/>
+               <nvpair id="Filesystem_apache_attr_4" name="options" value="acl"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" id="Filesystem_apache_bind" provider="heartbeat" type="Filesystem">
+           <operations>
+             <op id="Filesystem_apache_mon_bind" interval="60s" name="monitor" timeout="180s"/>
+           </operations>
+           <instance_attributes id="Filesystem_apache_attrs_bind">
+             <attributes>
+               <nvpair id="Filesystem_apache_attr_1_bind" name="device" value="/var/statefulls/www/www"/>
+               <nvpair id="Filesystem_apache_attr_2_bind" name="directory" value="/var/statefulls/www/ftpcao/var/www"/>
+               <nvpair id="Filesystem_apache_attr_3_bind" name="options" value="bind"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" type="IPaddr" provider="heartbeat" id="IPaddr2_apache">
+           <instance_attributes>
+             <attributes>
+               <nvpair name="ip" value="192.168.0.100"/>
+               <nvpair name="netmask" value="255.255.255.0"/>
+               <nvpair name="nic" value="eth0"/>
+             </attributes>
+            </instance_attributes>
+         </primitive>
+         <primitive class="ocf" type="IPaddr" provider="heartbeat" id="IPaddr2_apache_2">
+           <instance_attributes>
+             <attributes>
+               <nvpair name="ip" value="192.168.2.100"/>
+               <nvpair name="netmask" value="255.255.255.0"/>
+               <nvpair name="nic" value="eth0"/>
+             </attributes>
+            </instance_attributes>
+         </primitive>
+         <primitive class="ocf" id="apache_itself" provider="heartbeat" type="apache">
+           <operations>
+             <op id="apache_itself_op_1" name="start" timeout="180"/>
+             <op id="apache_itself_op_2" name="stop" timeout="180"/>
+             <op id="apache_itself_op_3" name="monitor" timeout="180" interval="60"/>
+           </operations>
+         </primitive>
+       </group>
+ 

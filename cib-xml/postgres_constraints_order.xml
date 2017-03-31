@@ -1,0 +1,4 @@
+<constraints>
+       <rsc_order id="drbd_psql_before_filesystem" from="drbd_psql" action="start" type="before" to="Filesystem_psql"/>
+       <rsc_order id="filesystem_before_psql" from="Filesystem_psql" action="start" type="before" to="psql_itself"/>
+</constraints>

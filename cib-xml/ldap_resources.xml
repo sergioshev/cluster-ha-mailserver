@@ -1,0 +1,11 @@
+       <group id="group_ldap">
+         <primitive class="ocf" type="IPaddr" provider="heartbeat" id="IPaddr2_ldap">
+           <instance_attributes>
+             <attributes>
+               <nvpair name="ip" value="192.168.0.106"/>
+               <nvpair name="netmask" value="255.255.255.0"/>
+               <nvpair name="nic" value="eth0"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+       </group>

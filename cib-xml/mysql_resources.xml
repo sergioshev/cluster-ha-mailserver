@@ -1,0 +1,40 @@
+       <group id="group_mysql">
+         <primitive class="heartbeat" id="drbd_mysql" provider="heartbeat" type="drbddisk">
+           <operations>
+             <op id="drbd_mysql_mon" interval="60s" name="monitor" timeout="180s"/>
+           </operations>
+           <instance_attributes id="drbd_mysql_attrs">
+             <attributes>
+               <nvpair id="rbddisk_mysql_attr_1" name="1" value="drbd_mysql"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" id="Filesystem_mysql" provider="heartbeat" type="Filesystem">
+           <operations>
+             <op id="Filesystem_mysql_mon" interval="60s" name="monitor" timeout="180s"/>
+           </operations>
+           <instance_attributes id="Filesystem_mysql_attrs">
+             <attributes>
+               <nvpair id="Filesystem_mysql_attr_1" name="device" value="/dev/drbd1"/>
+               <nvpair id="Filesystem_mysql_attr_2" name="directory" value="/var/statefulls/mysql"/>
+               <nvpair id="Filesystem_mysql_attr_3" name="fstype" value="ext3"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" type="IPaddr" provider="heartbeat" id="IPaddr2_mysql">
+           <instance_attributes>
+             <attributes>
+               <nvpair name="ip" value="192.168.0.104"/>
+               <nvpair name="netmask" value="255.255.255.0"/>
+               <nvpair name="nic" value="eth0"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" id="mysql_itself" provider="heartbeat" type="mysql">
+           <operations>
+             <op id="mysql_itself_op_1" name="start" timeout="180"/>
+             <op id="mysql_itself_op_2" name="stop" timeout="180"/>
+             <op id="mysql_itself_op_3" name="monitor" timeout="60" interval="180"/>
+           </operations>
+         </primitive>
+       </group>

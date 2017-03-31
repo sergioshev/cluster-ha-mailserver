@@ -1,0 +1,4 @@
+<constraints>
+   <rsc_order id="drbd_cyrus_before_filesystem" from="drbd_cyrus" action="start" type="before" to="Filesystem_cyrus"/>
+   <rsc_order id="filesystem_before_cyrus" from="Filesystem_cyrus" action="start" type="before" to="cyrus_itself"/>
+</constraints>

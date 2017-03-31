@@ -1,0 +1,4 @@
+<constraints>
+       <rsc_order id="drbd_samba_before_filesystem" from="drbd_samba" action="start" type="before" to="Filesystem_samba"/>
+       <rsc_order id="filesystem_before_samba" from="Filesystem_samba" action="start" type="before" to="samba_itself"/>
+</constraints>

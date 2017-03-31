@@ -1,0 +1,84 @@
+node $id="4e4a00cc-14f4-468f-807c-a6cef750433c" ngenio \
+	attributes standby="off"
+node $id="a0084667-b326-4398-84d3-b416d698dfb8" phantom \
+	attributes standby="off"
+primitive Filesystem_cyrus ocf:heartbeat:Filesystem \
+	params device="/dev/drbd0" directory="/var/statefulls/cyrus" fstype="ext3" \
+	op monitor interval="60s" timeout="180s"
+primitive Filesystem_postgres ocf:heartbeat:Filesystem \
+	params device="/dev/drbd4" directory="/var/statefulls/postgres" fstype="ext3" \
+	op monitor interval="60s" timeout="180s"
+primitive IPaddr2_cyrus ocf:heartbeat:IPaddr2 \
+	params ip="192.168.2.101" cidr_netmask="24" nic="eth0" \
+	op monitor interval="30s" timeout="60s"
+primitive IPaddr2_postgres ocf:heartbeat:IPaddr2 \
+	params ip="192.168.2.108" cidr_netmask="24" nic="eth0" \
+	op monitor interval="30s" timeout="60s"
+primitive IPaddr2_smtp ocf:heartbeat:IPaddr2 \
+	params ip="192.168.2.102" cidr_netmask="24" nic="eth0" \
+	op monitor interval="30s" timeout="60s"
+primitive IPaddr_cyrus ocf:heartbeat:IPaddr2 \
+	params ip="192.168.0.101" cidr_netmask="24" nic="eth0" \
+	op monitor interval="30s" timeout="60s"
+primitive IPaddr_ldap ocf:heartbeat:IPaddr2 \
+	params ip="192.168.0.106" cidr_netmask="24" nic="eth0" \
+	op monitor interval="30s" timeout="60s"
+primitive IPaddr_postgres ocf:heartbeat:IPaddr2 \
+	params ip="192.168.0.108" cidr_netmask="24" nic="eth0" \
+	op monitor interval="30s" timeout="60s"
+primitive IPaddr_smtp ocf:heartbeat:IPaddr2 \
+	params ip="192.168.0.102" cidr_netmask="24" nic="eth0" \
+	op monitor interval="30s" timeout="60s"
+primitive clamav_itself lsb:clamav-daemon
+primitive cyrus_itself ocf:heartbeat:ocf-cyrus \
+	op start interval="0" timeout="180s" \
+	op stop interval="0" timeout="180s" \
+	op monitor interval="60s" timeout="180s" \
+	meta target-role="Started"
+primitive drbd_cyrus ocf:heartbeat:drbd \
+	params drbd_resource="drbd_cyrus" \
+	op monitor interval="60s" timeout="180s"
+primitive drbd_postgres ocf:heartbeat:drbd \
+	params drbd_resource="drbd_psql" \
+	op monitor interval="60s" timeout="180s"
+primitive postgres_itself ocf:heartbeat:pgsql \
+	params pgctl="/usr/lib/postgresql/8.4/bin/pg_ctl" pgdata="/var/lib/postgresql/8.4/main" logfile="/var/log/postgresql/postgresql-8.4-main.log" \
+	op start interval="0" timeout="180s" \
+	op stop interval="0" timeout="180s" \
+	op monitor interval="60s" timeout="180s" \
+	meta target-role="Started"
+primitive smtp_itself lsb:exim4
+group smtp_group IPaddr_smtp IPaddr2_smtp smtp_itself clamav_itself
+ms drbd_cyrus_ms drbd_cyrus \
+	meta master-max="1" master-node-max="1" clone-max="2" clone-node-max="1" notify="true" target-role="Master" is-managed="true"
+ms drbd_postgres_ms drbd_postgres \
+	meta master-max="1" master-node-max="1" clone-max="2" clone-node-max="1" notify="true" is-managed="true" target-role="Master"
+location cyrus_drbr_node_down drbd_cyrus_ms \
+	rule $id="cyrus_drbr_node_down-rule" -inf: not_defined pingd or pingd lte 0
+location ldap_node_down IPaddr_ldap \
+	rule $id="ldap_node_down-rule" -inf: not_defined pingd or pingd lte 0
+location postgres_drbr_node_down drbd_postgres_ms \
+	rule $id="postgres_drbr_node_down-rule" -inf: not_defined pingd or pingd lte 0
+location pref_drdb_cyrus_loc drbd_cyrus_ms 100: ngenio
+location pref_drdb_postgres_loc drbd_postgres_ms 100: ngenio
+location pref_ldap_loc IPaddr_ldap 100: ngenio
+location pref_smtp_group_loc smtp_group 100: ngenio
+location smtp_group_node_down smtp_group \
+	rule $id="smtp_group_node_down-rule" -inf: not_defined pingd or pingd lte 0
+colocation pref_cyrus_col inf: drbd_cyrus_ms:Master Filesystem_cyrus
+colocation pref_cyrus_col_2 inf: Filesystem_cyrus IPaddr_cyrus
+colocation pref_cyrus_col_3 inf: IPaddr_cyrus IPaddr2_cyrus
+colocation pref_cyrus_col_4 inf: cyrus_itself IPaddr_cyrus IPaddr2_cyrus
+colocation pref_postgres_col inf: drbd_postgres_ms:Master Filesystem_postgres
+colocation pref_postgres_col_2 inf: Filesystem_postgres IPaddr_postgres
+colocation pref_postgres_col_3 inf: IPaddr_postgres IPaddr2_postgres
+colocation pref_postgres_col_4 inf: postgres_itself IPaddr_postgres IPaddr2_postgres
+order cyrus_pri_order inf: drbd_cyrus_ms:promote Filesystem_cyrus:start IPaddr_cyrus:start IPaddr2_cyrus:start cyrus_itself:start
+order cyrus_pri_order_rev inf: cyrus_itself:stop IPaddr2_cyrus:stop IPaddr_cyrus:stop Filesystem_cyrus:stop drbd_cyrus_ms:demote
+order postgres_pri_order inf: drbd_postgres_ms:promote Filesystem_postgres:start IPaddr_postgres:start IPaddr2_postgres:start postgres_itself:start
+order postgres_pri_order_rev inf: postgres_itself:stop IPaddr2_postgres:stop IPaddr_postgres:stop Filesystem_postgres:stop drbd_postgres_ms:demote
+property $id="cib-bootstrap-options" \
+	dc-version="1.0.9-74392a28b7f31d7ddc86689598bd23114f58978b" \
+	cluster-infrastructure="Heartbeat" \
+	stonith-enabled="false" \
+	last-lrm-refresh="1377540007"

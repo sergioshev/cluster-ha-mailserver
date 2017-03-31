@@ -1,0 +1,482 @@
+#!/bin/bash
+#
+# 
+# Cyrus
+#
+# Description:	Manages Cyrus as Linux-HA resource
+
+#
+# Author:	Sergio Shevtsov
+# Author:	Gustavo Ajeitos
+#
+# Support:	linux-ha@lists.linux-ha.org
+# License:	GNU General Public License (GPL)
+# Copyright:	(C) 2002 - 2007 Aegis Security, Inc.
+#
+# An example usage in /etc/ha.d/haresources: 
+#       node1  10.0.0.170 cyrus
+#
+# See usage() function below for more details...
+#
+# OCF instance parameters:
+#   OCF_RESKEY_binary
+#   OCF_RESKEY_daemon_name
+#   OCF_RESKEY_config
+#   OCF_RESKEY_imap_config
+#   OCF_RESKEY_user
+#   OCF_RESKEY_group
+#   OCF_RESKEY_pid
+#   OCF_RESKEY_imap_port
+#   OCF_RESKEY_lmtp_port
+
+
+#######################################################################
+# Initialization:
+
+#. ${OCF_ROOT}/resource.d/heartbeat/.ocf-shellfuncs
+#. /usr/lib/heartbeat/ocf-shellfuncs
+. /usr/lib/ocf/resource.d//heartbeat/.ocf-shellfuncs
+
+#######################################################################
+
+# Fill in some defaults if no values are specified
+OCF_RESKEY_binary_default="/usr/sbin/cyrmaster"
+OCF_RESKEY_daemon_name_default="cyrmaster"
+OCF_RESKEY_config_default="/etc/cyrus.conf"
+OCF_RESKEY_imap_config_default="/etc/imapd.conf"
+OCF_RESKEY_user_default="cyrus"
+OCF_RESKEY_group_default="mail"
+OCF_RESKEY_pid_default="/var/run/cyrmaster.pid"
+OCF_RESKEY_imap_port_default="143"
+OCF_RESKEY_lmtp_port_default="2003"
+OCF_RESKEY_timeout_default=20
+
+: ${OCF_RESKEY_binary=${OCF_RESKEY_binary_default}}
+: ${OCF_RESKEY_daemon_name=${OCF_RESKEY_daemon_name_default}}
+
+: ${OCF_RESKEY_config=${OCF_RESKEY_config_default}}
+: ${OCF_RESKEY_imap_config=${OCF_RESKEY_imap_config_default}}
+
+: ${OCF_RESKEY_user=${OCF_RESKEY_user_default}}
+: ${OCF_RESKEY_group=${OCF_RESKEY_group_default}}
+
+: ${OCF_RESKEY_pid=${OCF_RESKEY_pid_default}}
+: ${OCF_RESKEY_imap_port=${OCF_RESKEY_imap_port_default}}
+: ${OCF_RESKEY_lmtp_port=${OCF_RESKEY_lmtp_port_default}}
+
+: ${OCF_RESKEY_timeout=${OCF_RESKEY_timeout_default}}
+
+
+# Overridable defaults
+unset CYRUS_VERBOSE
+unset LISTENQUEUE
+unset CONF
+unset MASTERCONF
+[ -r /etc/default/cyrus2.2 ] && . /etc/default/cyrus2.2
+
+[ "x${CYRUS_VERBOSE}" != "x" ] && export CYRUS_VERBOSE
+# Make sure the master process is daemonized
+OPTIONS="${OPTIONS} -d"
+[ "x${CONF}" != "x" ] && OPTIONS="-C ${CONF} ${OPTIONS}"
+[ "x${MASTERCONF}" != "x" ] && OPTIONS="-M ${MASTERCONF} ${OPTIONS}"
+[ "x${LISTENQUEUE}" != "x" ] && OPTIONS="-l ${LISTENQUEUE} ${OPTIONS}"
+
+#######################################################################
+# Auxiliar functions:
+
+verifydb() {
+   while read -r DBKEY DBVALUE ; do
+        match=`sort -u < $1 | gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }"`
+        [ "x${match}" != "x${DBVALUE}" ] && return 0
+   done
+   return 1
+}
+
+createdir() {
+# $1 = user
+# $2 = group
+# $3 = permissions (octal)
+# $4 = path to directory
+        [ -d "$4" ] || mkdir -p "$4"
+        chown -c -h "$1:$2" "$4"
+        chmod -c "$3" "$4"
+}
+
+missingstatoverride () {
+        ocf_log err "$0: You are missing a dpkg-statoverride on $1.  Add it." >&2
+        exit 1
+}
+
+fixdirs () {
+        dir=`dpkg-statoverride --list /var/run/cyrus` \
+                || missingstatoverride /var/run/cyrus
+        [ -z "$dir" ] \
+                || createdir $dir
+        dir=`dpkg-statoverride --list /var/run/cyrus/socket` \
+                || missingstatoverride /var/run/cyrus/socket
+        [ -z "$dir" ] \
+                || createdir $dir
+}
+
+
+usage() {
+  cat <<UEND
+	usage: $0 (start|stop|validate-all|meta-data|monitor)
+
+	$0 manages a Cyrus2.2 as an HA resource.
+
+	The 'start' operation starts the Cyrus.
+	The 'stop' operation stops the Cyrus.
+	The 'status' operation reports whether Cyrus is running
+	The 'monitor' operation reports whether Cyrus seems to be working
+	The 'validate-all' operation reports whether the parameters are valid
+
+UEND
+}
+
+meta_data() {
+	cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="mysql">
+<version>1.0</version>
+
+<longdesc lang="en">
+Resource script for MySQL. 
+It manages a MySQL Database instance as an HA resource.
+</longdesc>
+<shortdesc lang="en">MySQL resource agent</shortdesc>
+
+<parameters>
+
+<parameter name="binary" unique="0" required="0">
+<longdesc lang="en">
+Location of the MySQL binary
+</longdesc>
+<shortdesc lang="en">MySQL binary</shortdesc>
+<content type="string" default="${OCF_RESKEY_binary_default}" />
+</parameter>
+
+<parameter name="config" unique="0" required="0">
+<longdesc lang="en">
+Configuration file
+</longdesc>
+<shortdesc lang="en">MySQL config</shortdesc>
+<content type="string" default="${OCF_RESKEY_config_default}" />
+</parameter>
+
+<parameter name="datadir" unique="0" required="0">
+<longdesc lang="en">
+Directory containing databases
+</longdesc>
+<shortdesc lang="en">MySQL datadir</shortdesc>
+<content type="string" default="${OCF_RESKEY_datadir_default}" />
+</parameter>
+
+<parameter name="user" unique="0" required="0">
+<longdesc lang="en">
+User running MySQL daemon
+</longdesc>
+<shortdesc lang="en">MySQL user</shortdesc>
+<content type="string" default="${OCF_RESKEY_user_default}" />
+</parameter>
+
+<parameter name="group" unique="0" required="0">
+<longdesc lang="en">
+Group running MySQL daemon (for logfile and directory permissions)
+</longdesc>
+<shortdesc lang="en">MySQL group</shortdesc>
+<content type="string" default="${OCF_RESKEY_group_default}"/>
+</parameter>
+
+<parameter name="log" unique="0" required="0">
+<longdesc lang="en">
+The logfile to be used for mysqld.
+</longdesc>
+<shortdesc lang="en">MySQL log file</shortdesc>
+<content type="string" default="${OCF_RESKEY_log_default}"/>
+</parameter>
+
+<parameter name="pid" unique="0" required="0">
+<longdesc lang="en">
+The pidfile to be used for mysqld.
+</longdesc>
+<shortdesc lang="en">MySQL pid file</shortdesc>
+<content type="string" default="${OCF_RESKEY_pid_default}"/>
+</parameter>
+
+<parameter name="socket" unique="0" required="0">
+<longdesc lang="en">
+The socket to be used for mysqld.
+</longdesc>
+<shortdesc lang="en">MySQL socket</shortdesc>
+<content type="string" default="${OCF_RESKEY_pid_default}"/>
+</parameter>
+
+<parameter name="test_table" unique="0" required="0">
+<longdesc lang="en">
+Table to be tested in monitor statement (in database.table notation)
+</longdesc>
+<shortdesc lang="en">MySQL test table</shortdesc>
+<content type="string" default="OCF_RESKEY_test_table_default" />
+</parameter>
+
+<parameter name="test_user" unique="0" required="0">
+<longdesc lang="en">
+MySQL test user
+</longdesc>
+<shortdesc lang="en">MySQL test user</shortdesc>
+<content type="string" default="OCF_RESKEY_test_user_default" />
+</parameter>
+
+<parameter name="test_passwd" unique="0" required="0">
+<longdesc lang="en">
+MySQL test user password
+</longdesc>
+<shortdesc lang="en">MySQL test user password</shortdesc>
+<content type="string" default="${OCF_RESKEY_test_passwd_default}" />
+</parameter>
+
+<parameter name="enable_creation" unique="0" required="0">
+<longdesc lang="en">
+If the MySQL database does not exist, it will be created 
+</longdesc>
+<shortdesc lang="en">Create the database if it does not exist</shortdesc>
+<content type="integer" default="${OCF_RESKEY_enable_creation_default}"/>
+</parameter>
+
+<parameter name="additional_parameters" unique="0" required="0">
+<longdesc lang="en">
+Additional parameters which are passed to the mysqld on startup. 
+(e.g. --skip-external-locking or --skip-grant-tables)
+</longdesc>
+<shortdesc lang="en">Additional paramters to pass to mysqld</shortdesc>
+<content type="integer" default="${OCF_RESKEY_additional_parameters_default}"/>
+</parameter>
+
+</parameters>
+
+<actions>
+<action name="start" timeout="120" />
+<action name="stop" timeout="120" />
+<action name="status" timeout="60" />
+<action name="monitor" depth="0" timeout="30" interval="10" start-delay="10" />
+<action name="validate-all" timeout="5" />
+<action name="meta-data" timeout="5" />
+</actions>
+</resource-agent>
+END
+}
+
+cyrus_validate() {
+# checking the parameters
+    if [ ! -f $OCF_RESKEY_config ]; then
+	ocf_log err "Config $OCF_RESKEY_config doesn't exist";
+	exit $OCF_ERR_ARGS;
+    fi
+
+    if [ ! -f $OCF_RESKEY_imap_config ]; then
+	ocf_log err "Config $OCF_RESKEY_imap_config doesn't exist";
+	exit $OCF_ERR_ARGS;
+    fi
+
+    getent passwd $OCF_RESKEY_user >/dev/null 2>&1
+    if [ ! $? -eq 0 ]; then
+	ocf_log err "User $OCF_RESKEY_user doesn't exit";
+	exit $OCF_ERR_ARGS;
+    fi
+    
+    getent group $OCF_RESKEY_group >/dev/null 2>&1
+    if [ ! $? -eq 0 ]; then
+	ocf_log err "Group $OCF_RESKEY_group doesn't exist";
+	exit $OCF_ERR_ARGS;
+    fi
+}
+
+cyrus_status() {
+
+        if [ "$1" = "verbose" ]; then
+                PRINTIT="ocf_log debug"
+        else
+                PRINTIT=true
+        fi
+        if [ ! -f ${OCF_RESKEY_pid} ]; then
+                # using [c] in the grep avoids catching the grep
+                # process itself
+                if ps auxww | grep -qE 'usr/sbin/[c]yrmaster' ; then
+                        # Damn, PID file doesn't exist, but cyrmaster process
+                        # exists. Though strictly speaking, we should not
+                        # do this, reconstruct the PID file here.
+                        pidof /usr/sbin/cyrmaster > /dev/null 2>&1 \
+                        && pidof /usr/sbin/cyrmaster > ${OCF_RESKEY_pid}
+                        ${PRINTIT} "cyrmaster running with PID `cat ${OCF_RESKEY_pid}`"
+                        return $OCF_SUCCESS
+                fi
+        fi
+        if [ -s ${OCF_RESKEY_pid} ] && kill -0 `cat ${OCF_RESKEY_pid}` > /dev/null 2>&1 \
+	        && [ "`cat ${OCF_RESKEY_pid}`" = "`pidof /usr/sbin/cyrmaster`" ] ; then
+                ${PRINTIT} "cyrmaster running with PID `cat ${OCF_RESKEY_pid}`"
+                return $OCF_SUCCESS
+        else
+                # the PID file might simply not match the cyrmaster process.
+                if pidof /usr/sbin/cyrmaster > /dev/null 2>&1 ; then
+                        # go ahead and fix it
+                        pidof /usr/sbin/cyrmaster > ${OCF_RESKEY_pid}
+                        ${PRINTIT} "cyrmaster running with PID `cat ${PIDFILE}`"
+                        return $OCF_SUCCESS
+                else
+                        # no process and/or no PID file, return failure
+                        ${PRINTIT} "cyrmaster not running"
+                        return $OCF_NOT_RUNNING
+                fi
+        fi
+        # this point should never be reached, return unknown status if it
+        # is anyway
+        return $OCF_ERR_GENERIC
+}
+
+cyrus_monitor() {
+    cyrus_status
+    rc=$?
+    if [ $OCF_CHECK_LEVEL = 0 -o $rc != 0 ]; then
+	return $rc
+    fi
+
+    # Do a detailed status check
+    #TODO: see /usr/bin/imtest
+    buf_imap=`nc -q 2 -w 6 localhost ${OCF_RESKEY_imap_port} 2>&1 << EOF`
+    buf_lmtp=`nc -q 2 -w 6 localhost ${OCF_RESKEY_lmtp_port} 2>&1 << EOF`
+    echo "$buf_imap" | grep -q "* OK" 
+    rc_imap=$?
+    echo "$buf_lmtp" | grep -q "220" 
+    rc_lmtp=$?
+    if [ $rc_imap -ne 0 -o $rc_lmtp -ne 0 ]; then
+	ocf_log err "Cyrus monitor failed:";
+	if [ ! -z "$buf_imap" ]; then ocf_log err "$buf_imap"; fi
+	if [ ! -z "$buf_lmtp" ]; then ocf_log err "$buf_lmtp"; fi
+	return $OCF_ERR_GENERIC;
+    else
+	ocf_log info "Cyrus monitor succeded";
+	return $OCF_SUCCESS;
+    fi
+}
+
+cyrus_start() {
+    # Verify consistency of database backends
+    [ -f /usr/lib/cyrus/cyrus-db-types.active ] && {
+        # is it safe to start cyrmaster? compare "key value" pairs
+        # from the (old) active database types file with the new one
+        ( sort -u /usr/lib/cyrus/cyrus-db-types.active \
+          | grep DBENGINE \
+          | verifydb /usr/lib/cyrus/cyrus-db-types.txt \
+        ) && {
+            ocf_log err "$0: Database backends mismatch! You must manually" 1>&2
+            ocf_log err "$0: verify and update the Cyrus databases to the" 1>&2
+            ocf_log err "$0: new backends." 1>&2
+            ocf_log err "$0: Please refer to /usr/share/doc/cyrus-common-2.2/README.Debian" 1>&2
+            ocf_log err "$0: for instructions." 1>&2
+            ocf_log err ""
+            ocf_log err "$0: Cyrmaster not started."
+            exit $OCF_ERR_GENERIC
+        }
+    }
+    ocf_log info "Starting Cyrus: "
+    fixdirs
+    cyrus_status
+    if [ $? == $OCF_SUCCESS ]; then
+        ocf_log info "Cyrus already running."
+        return $OCF_SUCCESS
+    fi
+    START="--start --quiet --pidfile ${OCF_RESKEY_pid} --exec ${OCF_RESKEY_binary} \
+           --name ${OCF_RESKEY_daemon_name} -- ${OPTIONS}"
+    if start-stop-daemon ${START} >/dev/null 2>&1 ; then
+        ocf_log info "${OCF_RESKEY_daemon_name}."
+    else
+        ocf_log err "(failed)."
+        exit $OCF_ERR_GENERIC
+    fi
+
+    # Spin waiting for the server to come up.
+    # Let the CRM/LRM time us out if required
+    start_wait=1
+    while [ $start_wait = 1 ]; do
+	cyrus_status
+	rc=$?
+	if [ $rc = $OCF_SUCCESS ]; then
+	    start_wait=0
+
+	elif [ $rc != $OCF_NOT_RUNNING ]; then
+	    ocf_log info "Cyrus start failed: $rc"
+	    return $rc
+	fi
+        sleep 2
+    done
+    
+    ocf_log info "Cyrus started"
+    return $OCF_SUCCESS
+}
+
+cyrus_stop() {
+    ocf_log info "Stopping Cyrus: "
+    STOP="--stop --quiet --pidfile ${OCF_RESKEY_pid} \
+    --name ${OCF_RESKEY_daemon_name} --startas ${OCF_RESKEY_binary}"
+    if start-stop-daemon ${STOP} >/dev/null 2>&1 ; then
+        ocf_log info "$OCF_RESKEY_daemon_name."
+    else
+        # process running?
+	cyrus_status
+	rc=$?
+        if [ $rc == $OCF_SUCCESS ]; then
+            # Yes, report failure.
+            ocf_log err "(failed)."
+            ocf_log err "Forced stop! ..."
+            /usr/bin/killall -KILL $OCF_RESKEY_daemon_name
+            rm -f ${OCF_RESKEY_pid}
+            exit $OCF_SUCCESS
+        else
+            # No, return as if stopped a running process
+            # successfully.
+            ocf_log info "."
+            rm -f ${OCF_RESKEY_pid}
+            exit $OCF_SUCCESS
+        fi
+    fi
+
+    count=1
+    stop_wait=1
+    while [ $stop_wait = 1  -a $count -le $OCF_RESKEY_timeout ]; do
+	cyrus_status
+	rc=$?
+	if [ $rc == $OCF_NOT_RUNNING ]; then
+	    stop_wait=0
+	fi
+        count=$(($count+1))
+        sleep 1
+    done
+    
+    if [ $count -ge $OCF_RESKEY_timeout ] ; then
+      ocf_log err "Trying force stop ..."
+      /usr/bin/killall -KILL $OCF_RESKEY_daemon_name
+    fi
+    ocf_log info "Cyrus stopped";
+    rm -f ${OCF_RESKEY_pid}
+    return $OCF_SUCCESS
+}
+
+
+# What kind of method was invoked?
+case "$1" in
+  start)	cyrus_validate; 
+		cyrus_start;;
+  stop)		cyrus_stop;;
+  status)	cyrus_status verbose;;
+  monitor)	cyrus_monitor;;
+
+  meta-data)	meta_data; exit $OCF_SUCCESS;;
+  validate-all)	cyrus_validate; exit $OCF_SUCCESS;;
+
+ *)		usage;
+		exit $OCF_ERR_UNIMPLEMENTED;;
+esac
+exit $?
+

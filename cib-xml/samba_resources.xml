@@ -1,0 +1,35 @@
+       <group id="group_samba">
+         <primitive class="heartbeat" id="drbd_samba" provider="heartbeat" type="drbddisk">
+           <operations>
+             <op id="drbd_samba_mon" interval="60s" name="monitor" timeout="180s"/>
+           </operations>
+           <instance_attributes id="drbd_samba_attrs">
+             <attributes>
+               <nvpair id="rbddisk_samba_attr_1" name="1" value="drbd_samba"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" id="Filesystem_samba" provider="heartbeat" type="Filesystem">
+           <operations>
+             <op id="Filesystem_samba_mon" interval="60s" name="monitor" timeout="180s"/>
+           </operations>
+           <instance_attributes id="Filesystem_samba_attrs">
+             <attributes>
+               <nvpair id="Filesystem_samba_attr_1" name="device" value="/dev/drbd2"/>
+               <nvpair id="Filesystem_samba_attr_2" name="directory" value="/var/statefulls/samba"/>
+               <nvpair id="Filesystem_samba_attr_3" name="fstype" value="ext3"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive class="ocf" type="IPaddr" provider="heartbeat" id="IPaddr2_samba">
+           <instance_attributes>
+             <attributes>
+               <nvpair name="ip" value="192.168.0.105"/>
+               <nvpair name="netmask" value="255.255.255.0"/>
+               <nvpair name="nic" value="eth0"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive id="samba_itself" class="lsb" type="samba" provider="heartbeat"/>
+       </group>
+
