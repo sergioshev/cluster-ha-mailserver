@@ -1,0 +1,67 @@
+#!/bin/bash
+# $Id$ 
+#
+#  Script utilizado para notificar usuarios que estan cerca de superar la cuota
+#  de cyrus.
+#
+#  Escanea el sistema de archivos de cyrus filtrando las salida y detectando 
+#  los usuarios que superan el umbral definido.
+#
+#  Se asume que el sistema de correo esta funcionando como corresponde en el 
+#  nodo donde corre este script. Dado que los correos son enviados por medio
+#  del comando "mail"
+#
+
+# porcentaje a partir del cual el usuario se notificara.
+threshold=97
+
+# tamaño de la cuota de cyrus expresada en bytes
+# 200 Mibibytes
+quotaSize=209715200
+
+# raiz de sistema de archivos de cyrus
+mailsRoot="/var/spool/cyrus/mail"
+
+# dominio de la empresa
+domain=$(hostname -d)
+
+# mail de sistemas
+sistemasEmail="sistemas@$domain"
+
+function sendmail()
+{
+  user=$1
+  message=$2
+  subject="ATENCION! Su bandeja de entrada esta por superar el espacio asignado"
+
+{ 
+cat <<FFAA
+
+
+ Estimado Usuario.
+
+    Su bandeja de enrada esta por alcanzar el limite de espacio asignado.
+    Si esto ocurre, sus nuevos correos se quedaran trabados hasta tanto
+    libere mas espacio.
+  
+    $message
+
+ Este mensaje es enviado periodicamente en forma automatica.
+ Gracias. 
+ Departamento de sistemas.
+
+FFAA
+} | mail -r "$sistemasEmail" -s "$subject" "$user"
+}
+
+# sanity checks
+# si no tengo el sistema de archivos de cyrus salgo
+[ ! -d "${mailsRoot}" ] && exit 0
+du -sb ${mailsRoot}/*/user/* | tr -d '\t' | cut -sd '/' -f 1,8  --output-delimiter="$(echo -e "\t")" | {
+  while read size user ; do
+    usage=$(($size*100/$quotaSize))
+    if [ $usage -gt $threshold ] ; then
+      sendmail "$user@$domain" "Actualmente usa el $usage%"
+    fi
+  done
+}

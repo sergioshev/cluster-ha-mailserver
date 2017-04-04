@@ -1,0 +1,13 @@
+#/bin/bash
+
+user="$1"
+[ "${user}x" == "x" ] && exit 1
+
+cyrusUser="user/$1"
+echo cargando sieve para $user
+sieveScript="/root/bin/sieve.script"
+tmpfile="/tmp/sievetmp"
+echo "put $sieveScript" > $tmpfile
+echo "activate sieve" >> $tmpfile
+echo sieveshell -a cyrus -u "$user" --execfile=$tmpfile localhost
+sieveshell -a cyrus -u "$user" --execfile=$tmpfile localhost

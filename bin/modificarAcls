@@ -1,0 +1,20 @@
+#/bin/bash
+
+echo lm | cyradm --user=cyrus localhost | egrep -o 'user/[^/]+$' | sed -e 's|^.*user/\(\S\+\).*|\1|' > cyrus.users
+
+folders='Spam Avisos AvisosVirus ValidoErroneo SpamErroneo'
+{
+  for u in $(<cyrus.users) ; do
+    for f in $folders ; do
+      echo "sam user/$u/$f $u lsrwipad"
+    done 
+  done 
+} || exit 1 
+
+{
+  for u in $(<cyrus.users) ; do
+    for f in $folders ; do
+      echo "sam user/$u/$f $u lsrwipad"
+    done 
+  done 
+} | cyradm --user=cyrus cyrus.terminalquequen.com.ar

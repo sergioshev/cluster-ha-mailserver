@@ -1,0 +1,17 @@
+# Este script muestra el total de espacio en disco que ocupan los directorios correspondientes a las cuentas
+# de correo
+
+# si se espesifica la opcion -k filtra la salida para mostrar los elementos que son mayores a 40Mb
+
+#!/bin/bash
+
+if [ ${#} == 0 ]; then
+		du -sh /var/spool/cyrus/mail/*/user/*	
+	elif [ $1 == "-k" ]; then 
+		du -sh /var/spool/cyrus/mail/*/user/* | egrep ^[4-9][[:digit:]].*M\|^[1-9][1-9][[:digit:]].*M
+#	elif [ $1 == "-s" &]; then
+#		if [ $(#) == 3 ]; then
+#	
+	else
+		echo -e "\nparametros invalidos"
+fi

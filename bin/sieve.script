@@ -1,0 +1,23 @@
+
+require [ "fileinto" ] ;
+
+if header :contains "X-Tq-Scan-Result" "virus" {
+  fileinto "AvisosVirus" ;
+}
+
+elsif header :contains "X-Tq-Scan-Result" "spam" {
+  fileinto "Spam" ;
+}
+
+elsif header :contains "X-Tq-Scan-Result" "lists" {
+  fileinto "Spam" ;
+}
+
+elsif header :contains "X-Tq-Scan-Result" "warn" {
+  fileinto "Avisos" ;
+}
+
+else {
+  keep ;
+}
+

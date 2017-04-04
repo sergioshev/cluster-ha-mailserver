@@ -1,0 +1,5 @@
+# este script elimina los mensajes "conjelados" de la cola del exim
+
+#!/bin/bash
+
+exim4 -Mrm `mailq | grep ***\ frozen\*** | grep -o --regexp=[[:space:]][[:alnum:]][[:alnum:]][[:alnum:]][[:alnum:]][[:alnum:]][[:alnum:]]-[[:alnum:]][[:alnum:]][[:alnum:]][[:alnum:]][[:alnum:]][[:alnum:]]-[[:alnum:]][[:alnum:]]`

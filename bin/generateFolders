@@ -1,0 +1,19 @@
+#/bin/bash
+
+#echo 'echo lm | cyradm --user=cyrus localhost' 1>&2
+#echo lm | cyradm --user=cyrus localhost | egrep -o 'user/[^/]+$' | sed -e 's/ \+(\\HasChildren).*$//' > cyrus.users
+
+user="$1"
+[ "${user}x" == "x" ] && exit 1
+
+cyrusUser="user/$1"
+echo creando $cyrusUser
+folders='Spam Avisos AvisosVirus ValidoErroneo SpamErroneo'
+#for i in $(<cyrus.users) ; do
+ { 
+   echo cm "$cyrusUser"
+   for f in $folders ; do
+     echo cm "$cyrusUser/$f" 
+   done 
+ } | cyradm --user=cyrus cyrus.terminalquequen.com.ar
+#done

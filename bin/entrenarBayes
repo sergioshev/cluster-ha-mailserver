@@ -1,0 +1,21 @@
+#!/bin/bash
+# Script que entrena la red bayes de spamassassin y bogofilter
+# Recolecta todo el correo que fue reportado como spam (falso-nagativo)
+# desde la cuenta de tqbayes
+
+if [ ! -d "/var/spool/cyrus/mail/t/user/tqbayes/ValidoErroneo" ] ; then
+  echo "No tengo acceso a la cuenta de tqbayes"
+  exit 0
+fi
+cd /var/spool/cyrus/mail/t/user/tqbayes/ValidoErroneo
+>/tmp/filelist
+find -type f -name '[1-9]*.' > /tmp/filelist
+
+if [ $(stat -c '%s' /tmp/filelist) -gt 0  ] ; then
+  for f in $(egrep -l 'BAYES_([0-8][0-9]|[9][1234])' [1-9]*.) ; do cat $f | sa-learn --no-sync --spam ; done
+  for f in $(grep -l 'X-Tq-Bogosity: Unsure' [1-9]*.) ; do cat $f | bogofilter --bogofilter-dir=/var/spool/bogofilter -s ; done
+  for f in $(grep -l 'X-Tq-Bogosity: Ham' [1-9]*.) ; do cat $f | bogofilter --bogofilter-dir=/var/spool/bogofilter -Ns ; done
+  for f in $(ls -1 [1-9]*.) ; do cat $f | cyrdeliver -a cyrus -m "user/tqbayes/usados/spam" ; done
+else
+  echo "No tengo mensajes en /var/spool/cyrus/mail/t/user/tqbayes/ValidoErroneo "
+fi 
